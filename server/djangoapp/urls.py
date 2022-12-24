@@ -29,11 +29,11 @@ urlpatterns = [
     #Create a Django get_dealer_details view to get reviews of a dealer
     # path for dealer reviews view
 
-    path('reviews/<int:id>', views.get_review_by_dealer, name='reviews'),
+    path('reviews/<int:dealer_id>/<str:dealer_name>', views.get_review_by_dealer, name='reviews'),
 
     # path for add a review view
 
-    path('addreview/<int:id>', views.add_review, name='addreview')
+    path('addreview/<int:dealer_id>/<str:dealer_name>', views.add_review, name='addreview')
 
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

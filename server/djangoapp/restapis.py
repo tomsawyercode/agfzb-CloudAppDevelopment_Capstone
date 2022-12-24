@@ -33,7 +33,7 @@ class CarDealer:
 
 class DealerReview:
 
-    def __init__(self, id, name, dealership, review, purchase, purchase_date, car_make, car_model, car_year):
+    def __init__(self, id, name, dealership, review, purchase, purchase_date, car_make, car_model, car_year,sentiment):
         
         self.id= id
         self.name = name
@@ -44,7 +44,7 @@ class DealerReview:
         self.car_make   =car_make
         self.car_model  =car_model
         self.car_year   =car_year
-        self.sentiment  = ""
+        self.sentiment  =sentiment 
     
     def __str__(self):
         return "Review: " + self.name +" :"+ self.review 
@@ -75,16 +75,16 @@ def get_request0(url, params):
 
 def get_request(url,**kwargs):
     params = kwargs.get("params")
-    print("params:",params)
+    #print("params:",params)
     if "apikey" in kwargs:
         apikey = kwargs["apikey"]
-        print("auth")
+        #print("auth")
         # Basic authentication GET
         response = requests.get(url, params=params, headers={'Content-Type': 'application/json'},
                                     auth=HTTPBasicAuth('apikey', apikey))        
     else:
         # No authentication GET    
-        print("No Auth")
+        #print("No Auth")
         try:
             # Call get method of requests library with URL and parameters
             response = requests.get(url, headers={'Content-Type': 'application/json'},params=params)
@@ -105,17 +105,24 @@ def get_request(url,**kwargs):
 def post_request(url, payload):
     
     print("POST to {} ".format(url))
-    print("   payload:",payload)
+    #print("   payload:",payload)
+    #print("   payload dump:",json.dumps(payload).encode(encoding='UTF-8',errors='strict'))
     try:
         # Call get method of requests library with URL and parameters
-        response = requests.post(url, headers={'Content-Type': 'application/json'},json=payload)
+        
+        #response = requests.post(url, headers={'Content-Type': 'application/json'},json=json.dumps(payload).encode(encoding='UTF-8',errors='strict'))
+        response = requests.post(url, json=payload) # se setea solo 'Content-Type': 'application/json'
     except:
         # If any error occurs
         print("Network exception occurred")
     status_code = response.status_code
-    print("With status {} ".format(status_code))
-    json_data = json.loads(response.text)
-    return json_data
+    print("   status: {} ".format(status_code))
+    #print("Response.content:",response.content)
+    #return status_code ??
+    json_data = json.loads(response.content)
+    return status_code, json_data
+    # 201 Created
+    # 204 No Content
 
 
 
@@ -126,10 +133,10 @@ def post_request(url, payload):
 # - Call get_request() with specified arguments
 # - Parse JSON results into a CarDealer object list
 
-def get_dealers_from_cf(url, params= None):
+def get_dealers_from_cf(url, params=None):
     results = []
     # Call get_request with a URL parameter
-    json_result = get_request(url,params )
+    json_result = get_request(url,params=params )
     if json_result:
         # Get the row list in JSON as dealers
         dealers = json_result["dealerships"] #rows
@@ -143,31 +150,35 @@ def get_dealers_from_cf(url, params= None):
                                    short_name=dealer_doc["short_name"],
                                    st=dealer_doc["st"], zip=dealer_doc["zip"])
             results.append(dealer_obj)
-    print("length:",len(results))
+    #print("length:",len(results))
     return results
 
 
-def get_dealer_by_id(url, id):
-    return get_dealers_from_cf(url,{'id':id})[0]  
-
-def get_dealers_by_state(url, state='Kansas'):    
-
-    return get_dealers_from_cf(url,{'state':state})
-
-
-# ------------------------------------------------------
-# Create a get_dealer_reviews_from_cf method to get reviews by dealer id from a cloud function
 # def get_dealer_by_id_from_cf(url, dealerId):
 # - Call get_request() with specified arguments
 # - Parse JSON results into a DealerView object list
 
 
+def get_dealer_by_id_from_cf(url, id):
+    
+    return get_dealers_from_cf(url,{'id':id})[0]  
+
+def get_dealers_by_state_from_cf(url, state): #='Kansas'   
+
+    return get_dealers_from_cf(url,{'state':state})
+
+
+# ------------------------------------------------------
+
+
+
+# Create a get_dealer_reviews_from_cf method to get reviews by dealer id from a cloud function
 
 def get_dealer_reviews_from_cf(url, id):
 
     results = []
     # Call get_request with a URL parameter
-    json_result = get_request(url,{'id':id} )
+    json_result = get_request(url,params={'id':id} )
     if json_result:
         # Get the row list in JSON as dealers
         elements = json_result["reviews"] #rows
@@ -183,7 +194,7 @@ def get_dealer_reviews_from_cf(url, id):
              )
             
             results.append(obj)
-    print("length:",len(results))
+    # print("length:",len(results))
     return results
 
 
@@ -199,11 +210,19 @@ def analyze_review_sentiments(text):
     url="https://api.us-south.natural-language-understanding.watson.cloud.ibm.com/instances/6770ddb0-6fd4-4f96-9241-69273c320661"
     url=url+"/v1/analyze"
 
-    params= {'text':text,'version':'2022-04-07','return_analyzed_text': True,'features':'keywords','keywords.sentiment':True}
+    #'features':'keywords'
+    params= {'text':text,'version':'2022-04-07','return_analyzed_text': True,'features':'sentiment','keywords.sentiment':True}
 
     response = get_request(url,params=params,apikey=apikey)
     print("NLU:",response)
-    return "positive"
+
+    if "error" in response:
+        label="neutral" #response['error']
+    else:    
+        label = response['sentiment']['document']['label']    
+
+    print("label:",label) 
+    return label
 
 
 
@@ -234,14 +253,39 @@ def dealershipsTest():
     for d in dealerships:
         print(d)
     # By Id
-    print("byId:",get_dealer_by_id(url, 5))       
+    print("byId:",get_dealer_by_id_from_cf(url, 5))       
     # By State    
-    dealerships = get_dealers_by_state(url) 
+    dealerships = get_dealers_by_state_from_cf(url,'Kansas') 
     for d in dealerships:
         print(d)
+
+
+
+def post_review():
+    new_review=  {'review': {
+                'id': 1671895461.533842, 
+                'name': 'Alphazap Car Dealership', 
+                'dealership': 15, 
+                'review': 'Excellent car service and best customer attention   ', 
+                'purchase': True, 
+                'purchase_date':
+                '11/15/2022', 
+                'car_make': 'Ford', 
+                'car_model': 'F 150',
+                'car_year': '2020', 
+                'datetime': '2022-12-24T15:24:21.535222'}}
+    #payload={"review":new_review}
+    url="https://us-south.functions.appdomain.cloud/api/v1/web/6265d22b-6b9e-4c35-b6e9-8363063d5443/car-review/reviews"
+
+    response = post_request(url, new_review)
+    print(response)
+
 
 if __name__ == "__main__":
 
     #reviewsTest()
     #get_request("url",apikey="22", params={'id':1})
-    analyze_review_sentiments("Have a nice day")
+    #analyze_review_sentiments("Have a nice day")
+    #dealershipsTest()
+    #reviewsTest()
+    post_review()

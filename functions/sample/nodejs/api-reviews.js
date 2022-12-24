@@ -29,14 +29,14 @@ async function main(params) {
     
      
     if (params.__ow_method.toUpperCase()=='GET' && params.id) return getReviews(cloudant,params.id); 
-    
-    if (params.__ow_method.toUpperCase()=='POST' && params.review ) return postOne(cloudant,params.review.review);
+        
+    if (params.__ow_method.toUpperCase()=='POST' && params.review ) return postOne(cloudant,params.review);
     
     // Test
     //return getReviews(cloudant,"15");
     //return postOne(cloudant,test_review.review);
     
-    let body= { method: params.__ow_method, action:'no op' };
+    let body= { method: params.__ow_method, action:'no operation' };
     let headers= { 'Content-Type': 'application/json' };
     return  {statusCode:200,headers,body};
     
@@ -67,30 +67,27 @@ return  {statusCode,headers,body};
 }
 
 test_review= {
-  "review": 
-      {
-          "id": 1114,
-          "name": "Upkar Lidder",
-          "dealership": 15,
-          "review": "Great service!",
-          "purchase": false,
-          "another": "field",
-          "purchase_date": "02/16/2021",
-          "car_make": "Audi",
-          "car_model": "Car",
-          "car_year": 2021
-      }
-  };
+    'id': 1671895461.533842, 
+    'name': 'Alphazap Car Dealership', 
+    'dealership': 10, 
+    'review': 'Excellent car service and best customer attention   ', 
+    'purchase': True, 
+    'purchase_date':
+    '11/15/2022', 
+    'car_make': 'Ford', 
+    'car_model': 'F 150',
+    'car_year': '2020', 
+    'datetime': '2022-12-24T15:24:21.535222'};
 
 
-async function postOne(cloudant,review){
+async function postOne(cloudant,doc){
 
-let query =  await cloudant.postDocument({ db: 'reviews',document:review});
+let query =  await cloudant.postDocument({ db: 'reviews',document:doc});
 
 //console.log("query:",Object.keys(query.result));  //'status', 'statusText', 'headers', 'result'
 
-let statusCode=200;
-body={'status':query.status, 'result':query.result};   
+let statusCode=query.status;
+body={'status':statusCode, 'result':query.result};   
 let headers= { 'Content-Type': 'application/json' };
 return  {statusCode,headers,body};
 }
